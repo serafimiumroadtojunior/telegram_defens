@@ -5,4 +5,7 @@ Packege's for Windows:
 pip install aiogram
 pip install sqlalchemy
 pip install cachetools
+pip install aiosqlite
 ```
+
+Using the aiosqlite driver is optional, you can use either asyncpg or aiomysql.
