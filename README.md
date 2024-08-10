@@ -2,10 +2,7 @@ This telegram bot can moderate the chat while the administrators are sleeping an
 
 Packege's for Windows:
 ```
-pip install aiogram
-pip install sqlalchemy
-pip install cachetools
-pip install aiosqlite
+python -m venv .venv
+.venv/Scripts/activate
+pip install -r requirements.txt
 ```
-
-Using the aiosqlite driver is optional, you can use either asyncpg or aiomysql.
