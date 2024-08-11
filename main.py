@@ -283,7 +283,7 @@ async def warn_user(message: Message, command: CommandObject):
         
     else:
         sent_message = await message.answer(
-            f"👀<a href='tg://user?id={reply.from_user.id}'><b>{reply.from_user.first_name}</b></a> \nhas received a warning for: {reason}. \n<i>Current count: {warns}.</i>", 
+            f"👀<a href='tg://user?id={reply.from_user.id}'><b>{reply.from_user.first_name}</b></a> has received a warning for: {reason}. \n<i>Current count: {warns}.</i>", 
             parse_mode="HTML", 
             reply_markup=keyboard
         )
