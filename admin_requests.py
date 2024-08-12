@@ -3,7 +3,7 @@ from sqlalchemy import update
 
 from models import async_session, User
 
-async def add_warn(user_id: int) -> int:
+async def add_warn(user_id: int):
     """
     Функция для выдачи варна юзеру по айди
     :param user_id: Айди юзера
@@ -11,11 +11,7 @@ async def add_warn(user_id: int) -> int:
     """
     async with async_session() as session:
         async with session.begin():
-            result = await session.execute(select(User).where(User.tg_id == user_id))
-            user = result.scalars().first()
-            if user:
-                user.warns += 1
-            await session.commit()
+            await session.execute(update(User).where(User.tg_id == user_id).values(warns = User.warns + 1))
 
 async def reset_warns(user_id: int):
     """
@@ -27,8 +23,6 @@ async def reset_warns(user_id: int):
             await session.execute(
                 update(User).where(User.tg_id == user_id).values(warns=0)
             )
-            await session.commit()
-
 
 async def check_warns(user_id: int) -> int:
     """
@@ -38,7 +32,7 @@ async def check_warns(user_id: int) -> int:
     """
     async with async_session() as session:
         result = await session.execute(select(User).where(User.tg_id == user_id))
-        user = result.scalars().first()
+        user = result.scalar_one()
         return user.warns if user else 0
 
 async def add_user(tg_id: int):
@@ -50,7 +44,6 @@ async def add_user(tg_id: int):
         async with session.begin():
             user = User(tg_id=tg_id)
             session.add(user)
-            await session.commit()
 
 async def check_user(tg_id: int):
     """
@@ -59,7 +52,7 @@ async def check_user(tg_id: int):
     """
     async with async_session() as session:
         result = await session.execute(select(User).where(User.tg_id == tg_id))
-        user = result.scalars().first()  
+        user = result.scalar_one_or_none()
 
         if user is None:
             await add_user(tg_id=tg_id)
@@ -71,11 +64,12 @@ async def del_warn(tg_id: int):
     """
     async with async_session() as session:
         async with session.begin():
-            result = await session.execute(
-                update(User)
-                .where(User.tg_id == tg_id)
-                .values(warns=User.warns - 1)
-                .execution_options(synchronize_session="fetch")
-            )
-            if result.rowcount > 0:
-                await session.commit()
+            result = await session.execute(select(User.warns).where(User.tg_id == tg_id))
+            current_warns = result.scalar_one_or_none()
+            
+            if current_warns is not None and current_warns > 0:
+                await session.execute(
+                    update(User)
+                    .where(User.tg_id == tg_id)
+                    .values(warns=User.warns - 1)
+                )
