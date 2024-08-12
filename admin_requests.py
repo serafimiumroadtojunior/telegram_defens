@@ -1,4 +1,5 @@
 from sqlalchemy.future import select
+from sqlalchemy import update
 
 from models import async_session, User
 
@@ -18,16 +19,16 @@ async def add_warn(user_id: int) -> int:
 
 async def reset_warns(user_id: int):
     """
-    Функция для сброса варнов у юзера по айди
-    :param user_id: Айди юзера
+    Функция для сброса варнов у юзера по айди.
+    :param user_id: Айди юзера.
     """
     async with async_session() as session:
         async with session.begin():
-            result = await session.execute(select(User).where(User.tg_id == user_id))
-            user = result.scalars().first()
-            if user:
-                user.warns = 0
+            await session.execute(
+                update(User).where(User.tg_id == user_id).values(warns=0)
+            )
             await session.commit()
+
 
 async def check_warns(user_id: int) -> int:
     """
@@ -70,8 +71,11 @@ async def del_warn(tg_id: int):
     """
     async with async_session() as session:
         async with session.begin():
-            result = await session.execute(select(User).where(User.tg_id == tg_id))
-            user = result.scalars().first()
-            if user.warns > 0:
-                user.warns -= 1
-            await session.commit()
+            result = await session.execute(
+                update(User)
+                .where(User.tg_id == tg_id)
+                .values(warns=User.warns - 1)
+                .execution_options(synchronize_session="fetch")
+            )
+            if result.rowcount > 0:
+                await session.commit()
