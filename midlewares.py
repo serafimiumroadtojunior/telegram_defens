@@ -7,6 +7,8 @@ from aiogram.types import Message, ChatMember, CallbackQuery, ChatPermissions, I
 from aiogram import BaseMiddleware, Bot
 from cachetools import TTLCache
 
+from admin_requests import check_user
+
 class AdminCheckerMiddleware(BaseMiddleware):
     """
     Этот мидлварь проверяет, является ли пользователь администратором или создателем чата. 
@@ -95,6 +97,19 @@ class ForbiddenWordsMiddleware(BaseMiddleware):
 
         return await handler(event, data)
 
+class AddUserToDataBase(BaseMiddleware):
+    """
+    Этот мидлварь добавляет пользователя в базу данных по сообщению
+    """
+    async def __call__(self,
+                     handler: Callable[[Message, Dict[str, Any]], Awaitable[Any]],
+                     event: Message,
+                     data: Dict[str, Any]
+                     ) -> Any:
+        
+        await check_user(event.from_user.id)
+        return await handler(event, data)
+    
 class AntiFloodMiddleware(BaseMiddleware):
     """
     Этот мидлварь проверяет наличие превышения лимита отправленных сообщений в течении определенного времени
