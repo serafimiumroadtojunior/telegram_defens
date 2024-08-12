@@ -10,9 +10,11 @@ from aiogram.types import Message, ChatPermissions, InlineKeyboardMarkup, Inline
 from aiogram.exceptions import TelegramBadRequest
 from dotenv import load_dotenv
 
-from midlewares import AdminCheckerMiddleware, CallbackAdminCheckerMiddleware, ForbiddenWordsMiddleware, AntiFloodMiddleware
+from midlewares import (AdminCheckerMiddleware, CallbackAdminCheckerMiddleware,
+                         ForbiddenWordsMiddleware, AntiFloodMiddleware,
+                         AddUserToDataBase)
 from models import engine, Base
-from admin_requests import add_warn, reset_warns, check_warns, check_user, del_warn
+from admin_requests import add_warn, reset_warns, check_warns, del_warn
 from other import forbidden_words
 
 load_dotenv()
@@ -255,7 +257,6 @@ async def warn_user(message: Message, command: CommandObject):
 
     reason = command.args if command.args else "no reason provided"
 
-    await check_user(reply.from_user.id)
     await add_warn(reply.from_user.id)
     warns = await check_warns(reply.from_user.id)
 
@@ -283,7 +284,7 @@ async def warn_user(message: Message, command: CommandObject):
         
     else:
         sent_message = await message.answer(
-            f"👀<a href='tg://user?id={reply.from_user.id}'><b>{reply.from_user.first_name}</b></a> has received a warning for: {reason}. \n<i>Current count: {warns}.</i>", 
+            f"👀<a href='tg://user?id={reply.from_user.id}'><b>{reply.from_user.first_name}</b></a> \nhas received a warning for: {reason}. \n<i>Current count: {warns}.</i>", 
             parse_mode="HTML", 
             reply_markup=keyboard
         )
@@ -301,6 +302,7 @@ async def main():
     dp.callback_query.middleware(CallbackAdminCheckerMiddleware(bot))
     dp.message.outer_middleware(ForbiddenWordsMiddleware(bot, forbidden_words))
     dp.message.middleware(AntiFloodMiddleware())
+    dp.message.outer_middleware(AddUserToDataBase())
 
     await dp.start_polling(bot)
 
