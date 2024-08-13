@@ -31,8 +31,8 @@ async def check_warns(user_id: int) -> int:
     :return: Количество варнов у юзера
     """
     async with async_session() as session:
-        result = await session.execute(select(User).where(User.tg_id == user_id))
-        user = result.scalar_one()
+        warn = await session.execute(select(User).where(User.tg_id == user_id))
+        user = warn.scalar_one()
         return user.warns if user else 0
 
 async def add_user(tg_id: int):
@@ -51,8 +51,8 @@ async def check_user(tg_id: int):
     :param tg_id: Айди юзера
     """
     async with async_session() as session:
-        result = await session.execute(select(User).where(User.tg_id == tg_id))
-        user = result.scalar_one_or_none()
+        check = await session.execute(select(User).where(User.tg_id == tg_id))
+        user = check.scalar_one_or_none()
 
         if user is None:
             await add_user(tg_id=tg_id)
@@ -64,8 +64,8 @@ async def del_warn(tg_id: int):
     """
     async with async_session() as session:
         async with session.begin():
-            result = await session.execute(select(User.warns).where(User.tg_id == tg_id))
-            current_warns = result.scalar_one_or_none()
+            check_warn = await session.execute(select(User.warns).where(User.tg_id == tg_id))
+            current_warns = check_warn.scalar_one_or_none()
             
             if current_warns is not None and current_warns > 0:
                 await session.execute(
