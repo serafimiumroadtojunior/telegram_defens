@@ -1,6 +1,5 @@
 from typing import Any, Callable, Dict, Awaitable, List
 from datetime import timedelta, datetime
-from contextlib import suppress
 
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import Message, ChatMember, CallbackQuery, ChatPermissions, InlineKeyboardButton, InlineKeyboardMarkup
@@ -20,7 +19,7 @@ class AdminCheckerMiddleware(BaseMiddleware):
 
     async def check_admin(self, chat_id, user_id):
         """
-        Функция для проверка на админа
+        Функция для проверки на админа
         """
         member: ChatMember = await self.bot.get_chat_member(chat_id=chat_id, user_id=user_id)
         return member.status in ['administrator', 'creator']
@@ -65,13 +64,15 @@ class ForbiddenWordsMiddleware(BaseMiddleware):
 
     async def mute_user(self, chat_id: int, user_id: int, duration: timedelta):
         until_date = datetime.now() + duration
-        with suppress(TelegramBadRequest):
+        try:
             await self.bot.restrict_chat_member(
                 chat_id=chat_id,
                 user_id=user_id,
                 permissions=ChatPermissions(can_send_messages=False),
                 until_date=until_date
             )
+        except TelegramBadRequest:
+            await self.bot.send_message(chat_id, '<b>🔴Error muting user</b>', parse_mode='HTML')
 
     async def __call__(
         self,
