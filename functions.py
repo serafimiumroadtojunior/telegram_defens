@@ -1,6 +1,5 @@
 import asyncio
 import re
-from contextlib import suppress
 from datetime import datetime, timedelta
 
 from aiogram import Bot
@@ -115,12 +114,6 @@ async def handle_unrestriction(bot: Bot, message: Message, action: str):
     await sent_message.delete()
 
 async def handle_restriction(bot: Bot, message: Message, command: CommandObject, action: str):
-    """
-    Функция для бана и мута по сообщению
-    :param message: Объект Message
-    :param command: Объект CommandObject
-    :param action: Тип действия (банить/мутить)
-    """
     reply = message.reply_to_message
     if not reply:
         sent_message = await message.answer("🔴Error! Reply to a message to use this command.", parse_mode='HTML')
@@ -136,38 +129,48 @@ async def handle_restriction(bot: Bot, message: Message, command: CommandObject,
         return
 
     if action == "mute":
-        with suppress(TelegramBadRequest):
+        try:
             await bot.restrict_chat_member(
                 chat_id=message.chat.id,
                 user_id=reply.from_user.id,
                 permissions=ChatPermissions(can_send_messages=False),
                 until_date=until_date
             )
+        except TelegramBadRequest:
+            sent_message = await message.answer(f"<b>🔴Error muting user</b>", parse_mode='HTML')
+            await asyncio.sleep(30)
+            await sent_message.delete()
+            return
     
     elif action == "ban":
-        with suppress(TelegramBadRequest):
+        try:
             await bot.ban_chat_member(
                 chat_id=message.chat.id,
                 user_id=reply.from_user.id,
                 until_date=until_date
             )
+        except TelegramBadRequest:
+            sent_message = await message.answer(f"<b>🔴Error banning user</b>", parse_mode='HTML')
+            await asyncio.sleep(30)
+            await sent_message.delete()
+            return
 
     action_past = "muted" if action == "mute" else "banned"
     button_text = "Unmute✅" if action == "mute" else "Unban✅"
     callback_data = f'unmute_{reply.from_user.id}' if action == "mute" else f'unban_{reply.from_user.id}'
     
-    button = InlineKeyboardButton(text=button_text, callback_data=callback_data)
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[[button]])
+    action_button = InlineKeyboardButton(text=button_text, callback_data=callback_data)
+    action_keyboard = InlineKeyboardMarkup(inline_keyboard=[[action_button]])
 
     sent_message = await message.answer(
         f"👀<a href='tg://user?id={reply.from_user.id}'><b>{reply.from_user.first_name}</b></a> has been {action_past} for {readable_time} \nfor the reason: {reason}. \nAdmin: <a href='tg://user?id={message.from_user.id}'><b>{message.from_user.first_name}</b></a>", 
         parse_mode="HTML", 
-        reply_markup=keyboard
+        reply_markup=action_keyboard
     )
     await asyncio.sleep(30)
     await sent_message.delete()
 
-    asyncio.create_task(send_unrestriction_message(message.chat.id, reply.from_user.id, action_past, until_date))
+    asyncio.create_task(send_unrestriction_message(bot, message.chat.id, reply.from_user.id, action_past, until_date))
 
 async def send_unrestriction_message(bot, chat_id, user_id, action_past, new_datetime):
     """
