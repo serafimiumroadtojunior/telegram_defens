@@ -1,6 +1,6 @@
 import asyncio
+from asyncio import Lock
 import os
-from contextlib import suppress
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command, CommandObject
@@ -21,6 +21,8 @@ load_dotenv()
 
 bot = Bot(token=os.getenv('TOKEN'))
 dp = Dispatcher()
+
+lock = Lock()
 
 @dp.message(Command('mute'))
 async def mute_handler(message: Message, command: CommandObject): 
@@ -62,15 +64,16 @@ async def unban_callback_handler(callback_query: CallbackQuery):
     Отлавливает специальный каллбек по которому понимает что надо удалить варн юзера
     :param callback_query: Объект CallbackQuery
     """
-    user_id = int(callback_query.data.split('_')[1])
-    await del_warn(user_id)
+    async with lock:
+        user_id = int(callback_query.data.split('_')[1])
+        await del_warn(user_id)
 
-    await callback_query.message.delete()
+        await callback_query.message.delete()
 
-    user_info = await bot.get_chat_member(callback_query.message.chat.id, user_id)
-    sent_message = await callback_query.message.answer(f"👀The <a href='tg://user?id={user_info.user.id}'><b>{user_info.user.first_name}</b></a> warn has been removed", parse_mode='HTML')
-    await asyncio.sleep(30)
-    await sent_message.delete()
+        user_info = await bot.get_chat_member(callback_query.message.chat.id, user_id)
+        sent_message = await callback_query.message.answer(f"👀The <a href='tg://user?id={user_info.user.id}'><b>{user_info.user.first_name}</b></a> warn has been removed", parse_mode='HTML')
+        await asyncio.sleep(30)
+        await sent_message.delete()
 
 @dp.message(Command('unmute'))
 async def unmute_handler(message: Message):
@@ -98,7 +101,7 @@ async def warn_user(message: Message, command: CommandObject):
     reply = message.reply_to_message
 
     if not reply:
-        sent_message = await message.answer("This command must be used as a reply to a user's message.", parse_mode='HTML')
+        sent_message = await message.answer("🔴<b>This command must be used as a reply to a user's message.</b>", parse_mode='HTML')
         await asyncio.sleep(30)
         await sent_message.delete()
         return
@@ -108,14 +111,15 @@ async def warn_user(message: Message, command: CommandObject):
     await add_warn(reply.from_user.id)
     warns = await check_warns(reply.from_user.id)
 
-    button = InlineKeyboardButton(text='Delete Warn✅', callback_data=f'rewarn_{reply.from_user.id}')
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[[button]])
+    delete_warn = InlineKeyboardButton(text='Delete Warn✅', callback_data=f'rewarn_{reply.from_user.id}')
+    warn_keyboard = InlineKeyboardMarkup(inline_keyboard=[[delete_warn]])
 
-    button2 = InlineKeyboardButton(text='Unban✅', callback_data=f'unban_{reply.from_user.id}')
-    keyboard2 = InlineKeyboardMarkup(inline_keyboard=[[button2]])
+    unban_button = InlineKeyboardButton(text='Unban✅', callback_data=f'unban_{reply.from_user.id}')
+    unban_keyboard = InlineKeyboardMarkup(inline_keyboard=[[unban_button]])
 
     if warns >= 3:
-        with suppress(TelegramBadRequest):
+        try:
+            await reset_warns(reply.from_user.id)
             await bot.ban_chat_member(
                 chat_id=message.chat.id,
                 user_id=reply.from_user.id
@@ -123,18 +127,24 @@ async def warn_user(message: Message, command: CommandObject):
 
             sent_message = await message.answer(
                 f"👀<a href='tg://user?id={reply.from_user.id}'><b>{reply.from_user.first_name}</b></a> has been permanently banned for receiving 3 warnings.",
-                reply_markup=keyboard2,
+                reply_markup=unban_keyboard,
                 parse_mode="HTML"
             )
-            await reset_warns(reply.from_user.id)
+
             await asyncio.sleep(30)
             await sent_message.delete()
+
+        except TelegramBadRequest:
+            sent_message = await message.answer(f"<b>🔴Error banning user</b>", parse_mode='HTML')
+            await asyncio.sleep(30)
+            await sent_message.delete()
+            return
         
     else:
         sent_message = await message.answer(
-            f"👀<a href='tg://user?id={reply.from_user.id}'><b>{reply.from_user.first_name}</b></a> \nhas received a warning for: {reason}. \n<i>Current count: {warns}.</i>", 
+            f"👀<a href='tg://user?id={reply.from_user.id}'><b>{reply.from_user.first_name}</b></a> has received a warning for: {reason}. \n<i>Current count: {warns}.</i>", 
             parse_mode="HTML", 
-            reply_markup=keyboard
+            reply_markup=warn_keyboard
         )
         await asyncio.sleep(30)
         await sent_message.delete()
