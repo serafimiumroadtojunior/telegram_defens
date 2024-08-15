@@ -7,6 +7,7 @@ from aiogram.filters import CommandObject
 from aiogram.types import Message, ChatPermissions, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from aiogram.exceptions import TelegramBadRequest
 
+
 def parse_time_and_reason(args):
     """
     Функция для парсинга времени и причины
@@ -48,6 +49,7 @@ def parse_time_and_reason(args):
         reason = "no reason provided"
     return until_date, reason, readable_time
 
+
 async def handle_unrestriction_for_callback(bot: Bot, callback_query: CallbackQuery, action: str):
     """
     Функция для разбана и размута по Callback
@@ -57,27 +59,19 @@ async def handle_unrestriction_for_callback(bot: Bot, callback_query: CallbackQu
     user_id = int(callback_query.data.split('_')[1])
 
     if action == "unmute":
-        await bot.restrict_chat_member(
-            chat_id=callback_query.message.chat.id,
-            user_id=user_id,
-            permissions=ChatPermissions(can_send_messages=True)
-        )
+        await mute_and_unmute(bot=bot, chat_id=callback_query.message.chat.id, tg_id=user_id, permission=True)
 
     elif action == "unban":
-        await bot.unban_chat_member(
-            chat_id=callback_query.message.chat.id,
-            user_id=user_id
-        )
+        await unban_user(bot=bot, chat_id=callback_query.message.chat.id, tg_id=user_id)
 
     await callback_query.message.delete()
     action_past = "unmuted" if action == "unmute" else "unbanned"
     user_info = await bot.get_chat_member(callback_query.message.chat.id, user_id)
     sent_message = await callback_query.message.answer(
-        f"<a href='tg://user?id={user_info.user.id}'><b>👀{user_info.user.first_name}</b></a> has been {action_past}.", 
+        f"<a href='tg://user?id={user_info.user.id}'><b>👀{user_info.user.first_name}</b></a> has been {action_past}.",
         parse_mode='HTML'
     )
-    await asyncio.sleep(30)
-    await sent_message.delete()
+    await delayed_delete(30, sent_message)
 
 async def handle_unrestriction(bot: Bot, message: Message, action: str):
     """
@@ -87,88 +81,65 @@ async def handle_unrestriction(bot: Bot, message: Message, action: str):
     """
     reply = message.reply_to_message
     if not reply:
-        sent_message = await message.answer("Error! Reply to a message to use this command.", parse_mode='HTML')
-        await asyncio.sleep(15)
-        await sent_message.delete()
+        sent_message = await message.answer("🔴Error! Reply to a message to use this command.", parse_mode='HTML')
+        await delayed_delete(10, sent_message)
         return
 
     if action == "unmute":
-        await bot.restrict_chat_member(
-            chat_id=message.chat.id,
-            user_id=reply.from_user.id,
-            permissions=ChatPermissions(can_send_messages=True)
-        )
+        await mute_and_unmute(bot=bot, chat_id=message.chat.id, tg_id=reply.from_user.id, permission=True)
 
     elif action == "unban":
-        await bot.unban_chat_member(
-            chat_id=message.chat.id,
-            user_id=reply.from_user.id
-        )
+        await unban_user(bot=bot, chat_id=message.chat.id, tg_id=reply.from_user.id)
 
     action_past = "unmuted" if action == "unmute" else "unbanned"
     sent_message = await message.answer(
         f"<a href='tg://user?id={reply.from_user.id}'><b>{reply.from_user.first_name}</b></a> has been {action_past}.",
         parse_mode='HTML'
     )
-    await asyncio.sleep(30)
-    await sent_message.delete()
+    await delayed_delete(30, sent_message)
 
 async def handle_restriction(bot: Bot, message: Message, command: CommandObject, action: str):
     reply = message.reply_to_message
     if not reply:
         sent_message = await message.answer("🔴Error! Reply to a message to use this command.", parse_mode='HTML')
-        await asyncio.sleep(30)
-        await sent_message.delete()
+        await delayed_delete(10, sent_message)
         return
 
     until_date, reason, readable_time = parse_time_and_reason(command.args)
     if not until_date:
         sent_message = await message.answer("🔴Error! Could not parse the time. Correct format: /mute 12h for spam", parse_mode='HTML')
-        await asyncio.sleep(30)
-        await sent_message.delete()
+        await delayed_delete(10, sent_message)
         return
 
     if action == "mute":
         try:
-            await bot.restrict_chat_member(
-                chat_id=message.chat.id,
-                user_id=reply.from_user.id,
-                permissions=ChatPermissions(can_send_messages=False),
-                until_date=until_date
-            )
+            await mute_and_unmute(bot=bot, chat_id=message.chat.id, tg_id=reply.from_user.id, permission=False, until_date=until_date)
         except TelegramBadRequest:
-            sent_message = await message.answer(f"<b>🔴Error muting user</b>", parse_mode='HTML')
-            await asyncio.sleep(30)
-            await sent_message.delete()
-            return
-    
-    elif action == "ban":
-        try:
-            await bot.ban_chat_member(
-                chat_id=message.chat.id,
-                user_id=reply.from_user.id,
-                until_date=until_date
-            )
-        except TelegramBadRequest:
-            sent_message = await message.answer(f"<b>🔴Error banning user</b>", parse_mode='HTML')
-            await asyncio.sleep(30)
-            await sent_message.delete()
+            sent_message = await message.answer("<b>🔴Error mute!</b>", parse_mode='HTML')
+            await delayed_delete(30, sent_message)
             return
 
+    elif action == "ban":
+        try:
+            await ban_user(bot=bot, chat_id=message.chat.id, tg_id=reply.from_user.id, until_date=until_date)
+        except TelegramBadRequest:
+            sent_message = await message.answer("<b>🔴Error ban!</b>", parse_mode='HTML')
+            await delayed_delete(10, sent_message)
+            return
+        
     action_past = "muted" if action == "mute" else "banned"
     button_text = "Unmute✅" if action == "mute" else "Unban✅"
     callback_data = f'unmute_{reply.from_user.id}' if action == "mute" else f'unban_{reply.from_user.id}'
-    
+
     action_button = InlineKeyboardButton(text=button_text, callback_data=callback_data)
     action_keyboard = InlineKeyboardMarkup(inline_keyboard=[[action_button]])
 
     sent_message = await message.answer(
-        f"👀<a href='tg://user?id={reply.from_user.id}'><b>{reply.from_user.first_name}</b></a> has been {action_past} for {readable_time} \nfor the reason: {reason}. \nAdmin: <a href='tg://user?id={message.from_user.id}'><b>{message.from_user.first_name}</b></a>", 
-        parse_mode="HTML", 
+        f"👀<a href='tg://user?id={reply.from_user.id}'><b>{reply.from_user.first_name}</b></a> has been {action_past} for {readable_time} \nfor the reason: {reason}. \nAdmin: <a href='tg://user?id={message.from_user.id}'><b>{message.from_user.first_name}</b></a>",
+        parse_mode="HTML",
         reply_markup=action_keyboard
     )
-    await asyncio.sleep(30)
-    await sent_message.delete()
+    await delayed_delete(30, sent_message)
 
     asyncio.create_task(send_unrestriction_message(bot, message.chat.id, reply.from_user.id, action_past, until_date))
 
@@ -190,5 +161,36 @@ async def send_unrestriction_message(bot, chat_id, user_id, action_past, new_dat
     if not chat_member.can_send_messages:
         unrestriction_message = f"<a href='tg://user?id={user_id}'><b>👀{chat_member.user.first_name}</b></a> has been {'unmuted' if action_past == 'muted' else 'unbanned'}."
         sent_message = await bot.send_message(chat_id, unrestriction_message, parse_mode='HTML')
-        await asyncio.sleep(30)
-        await sent_message.delete()
+        await delayed_delete(30, sent_message)
+
+async def mute_and_unmute(bot: Bot, chat_id: int, tg_id: int, permission: bool, until_date=None):
+        await bot.restrict_chat_member(
+            chat_id=chat_id,
+            user_id=tg_id,
+            permissions=ChatPermissions(can_send_messages=permission),
+            until_date=until_date
+        )
+
+async def ban_user(bot: Bot, chat_id: int, tg_id: int, until_date: datetime | None = None):
+    await bot.ban_chat_member(
+        chat_id=chat_id,
+        user_id=tg_id,
+        until_date=until_date
+    )
+
+
+async def unban_user(bot: Bot, chat_id: int, tg_id: int):
+    await bot.unban_chat_member(
+        chat_id=chat_id,
+        user_id=tg_id,
+    )
+
+
+async def delayed_delete(delay: int, message: Message):
+    """
+    Функция для удаления сообщения с задержкой.
+    :param delay: Время задержки перед удалением (в секундах).
+    :param message: Сообщение, которое нужно удалить.
+    """
+    await asyncio.sleep(delay)
+    await message.delete()
