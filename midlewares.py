@@ -1,12 +1,12 @@
 from typing import Any, Callable, Dict, Awaitable, List
 from datetime import timedelta, datetime
 
-from aiogram.exceptions import TelegramBadRequest
-from aiogram.types import Message, ChatMember, CallbackQuery, ChatPermissions, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import Message, ChatMember, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram import BaseMiddleware, Bot
+from aiogram.exceptions import TelegramBadRequest
 from cachetools import TTLCache
 
-from admin_requests import check_user
+from functions import mute_and_unmute, delayed_delete
 
 class AdminCheckerMiddleware(BaseMiddleware):
     """
@@ -62,17 +62,12 @@ class ForbiddenWordsMiddleware(BaseMiddleware):
         self.response_message = response_message
         super().__init__()
 
-    async def mute_user(self, chat_id: int, user_id: int, duration: timedelta):
+    async def mute_user(self, message: Message, chat_id: int, user_id: int, duration: timedelta):
         until_date = datetime.now() + duration
         try:
-            await self.bot.restrict_chat_member(
-                chat_id=chat_id,
-                user_id=user_id,
-                permissions=ChatPermissions(can_send_messages=False),
-                until_date=until_date
-            )
+            await mute_and_unmute(bot= self.bot, chat_id= chat_id, tg_id= user_id, permission= False, until_date= until_date)
         except TelegramBadRequest:
-            await self.bot.send_message(chat_id, '<b>🔴Error muting user</b>', parse_mode='HTML')
+            await  message.answer("🔴Error mute!")
 
     async def __call__(
         self,
@@ -82,12 +77,12 @@ class ForbiddenWordsMiddleware(BaseMiddleware):
     ) -> Any:
         
         if event.text and any(word in event.text.lower() for word in self.forbidden_words):
-            await self.mute_user(event.chat.id, event.from_user.id, timedelta(minutes=30))
+            await self.mute_user(event, event.chat.id, event.from_user.id, timedelta(minutes=30))
 
             button = InlineKeyboardButton(text='Unmute✅', callback_data=f'unmute_{event.from_user.id}')
             keyboard = InlineKeyboardMarkup(inline_keyboard=[[button]])
             
-            await event.reply(
+            sent_message = await event.reply(
                 self.response_message.format(
                     username=event.from_user.first_name,
                     user_id=event.from_user.id
@@ -95,20 +90,8 @@ class ForbiddenWordsMiddleware(BaseMiddleware):
                 parse_mode='HTML',
                 reply_markup=keyboard
             )
+            await delayed_delete(30, sent_message)
 
-        return await handler(event, data)
-
-class AddUserToDataBase(BaseMiddleware):
-    """
-    Этот мидлварь добавляет пользователя в базу данных по сообщению
-    """
-    async def __call__(self,
-                     handler: Callable[[Message, Dict[str, Any]], Awaitable[Any]],
-                     event: Message,
-                     data: Dict[str, Any]
-                     ) -> Any:
-        
-        await check_user(event.from_user.id)
         return await handler(event, data)
     
 class AntiFloodMiddleware(BaseMiddleware):
