@@ -6,7 +6,7 @@ from aiogram import BaseMiddleware, Bot
 from aiogram.exceptions import TelegramBadRequest
 from cachetools import TTLCache
 
-from functions import mute_and_unmute, delayed_delete
+from functions import mute_and_unmute, delayed_delete, optional_keyboard
 
 class AdminCheckerMiddleware(BaseMiddleware):
     """
@@ -31,7 +31,7 @@ class AdminCheckerMiddleware(BaseMiddleware):
         data: Dict[str, Any]
     ) -> Any:
         if not await self.check_admin(event.chat.id, event.from_user.id):
-            await event.answer("You do not have sufficient rights to perform this function.")
+            await event.answer("🔴You do not have sufficient rights to perform this function.")
             return
         return await handler(event, data)
 
@@ -47,7 +47,7 @@ class CallbackAdminCheckerMiddleware(AdminCheckerMiddleware):
         data: Dict[str, Any]
     ) -> Any:
         if not await self.check_admin(event.message.chat.id, event.from_user.id):
-            await event.answer("You do not have sufficient rights to perform this function.", show_alert=True)
+            await event.answer("🔴You do not have sufficient rights to perform this function.", show_alert=True)
             return
         return await handler(event, data)
 
@@ -64,10 +64,7 @@ class ForbiddenWordsMiddleware(BaseMiddleware):
 
     async def mute_user(self, message: Message, chat_id: int, user_id: int, duration: timedelta):
         until_date = datetime.now() + duration
-        try:
-            await mute_and_unmute(bot= self.bot, chat_id= chat_id, tg_id= user_id, permission= False, until_date= until_date)
-        except TelegramBadRequest:
-            await  message.answer("🔴Error mute!")
+        await mute_and_unmute(bot= self.bot, chat_id= chat_id, tg_id= user_id, permission= False, until_date= until_date)
 
     async def __call__(
         self,
@@ -77,19 +74,21 @@ class ForbiddenWordsMiddleware(BaseMiddleware):
     ) -> Any:
         
         if event.text and any(word in event.text.lower() for word in self.forbidden_words):
-            await self.mute_user(event, event.chat.id, event.from_user.id, timedelta(minutes=30))
+            try:
+                await self.mute_user(event, event.chat.id, event.from_user.id, timedelta(minutes=30))
+                
+                sent_message = await event.reply(
+                    self.response_message.format(
+                        username=event.from_user.first_name,
+                        user_id=event.from_user.id
+                    ),
+                    parse_mode='HTML',
+                    reply_markup=await optional_keyboard('Unmute✅', f'unmute_{event.from_user.id}')
+                )
+            except TelegramBadRequest:
+                sent_message = await  event.answer("🔴Error mute!")
+                await delayed_delete(10, sent_message)
 
-            button = InlineKeyboardButton(text='Unmute✅', callback_data=f'unmute_{event.from_user.id}')
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[[button]])
-            
-            sent_message = await event.reply(
-                self.response_message.format(
-                    username=event.from_user.first_name,
-                    user_id=event.from_user.id
-                ),
-                parse_mode='HTML',
-                reply_markup=keyboard
-            )
             await delayed_delete(30, sent_message)
 
         return await handler(event, data)
