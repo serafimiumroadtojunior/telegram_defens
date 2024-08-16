@@ -56,6 +56,8 @@ async def handle_unrestriction_for_callback(bot: Bot, callback_query: CallbackQu
     :param callback_query: Объект CallbackQuery
     :param action: Тип действия (размутить/разбанить)
     """
+    await callback_query.message.delete()
+    
     user_id = int(callback_query.data.split('_')[1])
 
     if action == "unmute":
@@ -64,7 +66,6 @@ async def handle_unrestriction_for_callback(bot: Bot, callback_query: CallbackQu
     elif action == "unban":
         await unban_user(bot=bot, chat_id=callback_query.message.chat.id, tg_id=user_id)
 
-    await callback_query.message.delete()
     action_past = "unmuted" if action == "unmute" else "unbanned"
     user_info = await bot.get_chat_member(callback_query.message.chat.id, user_id)
     sent_message = await callback_query.message.answer(
@@ -131,13 +132,10 @@ async def handle_restriction(bot: Bot, message: Message, command: CommandObject,
     button_text = "Unmute✅" if action == "mute" else "Unban✅"
     callback_data = f'unmute_{reply.from_user.id}' if action == "mute" else f'unban_{reply.from_user.id}'
 
-    action_button = InlineKeyboardButton(text=button_text, callback_data=callback_data)
-    action_keyboard = InlineKeyboardMarkup(inline_keyboard=[[action_button]])
-
     sent_message = await message.answer(
         f"👀<a href='tg://user?id={reply.from_user.id}'><b>{reply.from_user.first_name}</b></a> has been {action_past} for {readable_time} \nfor the reason: {reason}. \nAdmin: <a href='tg://user?id={message.from_user.id}'><b>{message.from_user.first_name}</b></a>",
         parse_mode="HTML",
-        reply_markup=action_keyboard
+        reply_markup=await optional_keyboard(button_text, callback_data)
     )
     await delayed_delete(30, sent_message)
 
@@ -194,3 +192,8 @@ async def delayed_delete(delay: int, message: Message):
     """
     await asyncio.sleep(delay)
     await message.delete()
+
+
+async def optional_keyboard(text, callback_data):
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=text, callback_data=callback_data)]])
+    return keyboard
