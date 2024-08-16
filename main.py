@@ -11,7 +11,8 @@ from midlewares import (AdminCheckerMiddleware, CallbackAdminCheckerMiddleware,
                         ForbiddenWordsMiddleware, AntiFloodMiddleware)
 
 from functions import (handle_restriction, handle_unrestriction,
-                       handle_unrestriction_for_callback, ban_user,  delayed_delete)
+                       handle_unrestriction_for_callback, ban_user,  delayed_delete,
+                       optional_keyboard)
 
 from models import engine, Base
 from admin_requests import add_warn, reset_warns, check_warns, del_warn, add_user
@@ -62,10 +63,10 @@ async def unban_callback_handler(callback_query: CallbackQuery):
     Отлавливает специальный каллбек по которому понимает что надо удалить варн юзера
     :param callback_query: Объект CallbackQuery
     """
+    await callback_query.message.delete()
+    
     user_id = int(callback_query.data.split('_')[1])
     await del_warn(user_id)
-
-    await callback_query.message.delete()
 
     user_info = await bot.get_chat_member(callback_query.message.chat.id, user_id)
     sent_message = await callback_query.message.answer(f"👀The <a href='tg://user?id={user_info.user.id}'><b>{user_info.user.first_name}</b></a> warn has been removed", parse_mode='HTML')
@@ -107,33 +108,27 @@ async def warn_user(message: Message, command: CommandObject):
     await add_warn(reply.from_user.id)
     warns = await check_warns(reply.from_user.id)
 
-    delete_warn = InlineKeyboardButton(text='Delete Warn✅', callback_data=f'rewarn_{reply.from_user.id}')
-    warn_keyboard = InlineKeyboardMarkup(inline_keyboard=[[delete_warn]])
-
-    unban_button = InlineKeyboardButton(text='Unban✅', callback_data=f'unban_{reply.from_user.id}')
-    unban_keyboard = InlineKeyboardMarkup(inline_keyboard=[[unban_button]])
-
     if warns >= 3:
         await reset_warns(reply.from_user.id)
         try:
             await ban_user(bot= bot, tg_id= reply.from_user.id, chat_id= message.chat.id)
+
+            sent_message = await message.answer(
+                f"👀<a href='tg://user?id={reply.from_user.id}'><b>{reply.from_user.first_name}</b></a> has been permanently banned for receiving 3 warnings.",
+                reply_markup=await optional_keyboard('Unban✅',  f'unban_{reply.from_user.id}'),
+                parse_mode="HTML"
+            )
+            await delayed_delete(30, sent_message)
+
         except TelegramBadRequest:
-            sent_message = await message.answer("<b>🔴Error ban!</b>", parse_mode='HTML')
-            await delayed_delete(10, sent_message)
-
-        sent_message = await message.answer(
-            f"👀<a href='tg://user?id={reply.from_user.id}'><b>{reply.from_user.first_name}</b></a> has been permanently banned for receiving 3 warnings.",
-            reply_markup=unban_keyboard,
-            parse_mode="HTML"
-        )
-
-        await delayed_delete(30, sent_message)
+            error_message = await message.answer("<b>🔴Error ban!</b>", parse_mode='HTML')
+            await delayed_delete(10, error_message)
    
     else:
         sent_message = await message.answer(
             f"👀<a href='tg://user?id={reply.from_user.id}'><b>{reply.from_user.first_name}</b></a> has received a warning for: {reason}. \n<i>Current count: {warns}.</i>", 
             parse_mode="HTML", 
-            reply_markup=warn_keyboard
+            reply_markup=await optional_keyboard('Delete Warn✅',  f'rewarn_{reply.from_user.id}')
         )
         await delayed_delete(30, sent_message)
 
