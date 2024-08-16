@@ -5,6 +5,7 @@ from sqlalchemy import Integer, BigInteger
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncAttrs
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -24,5 +25,5 @@ class User(Base):
     __tablename__ = 'users_moderations'
     
     id: Mapped[intpk]
-    tg_id: Mapped[BigInteger] = mapped_column(BigInteger)
+    tg_id: Mapped[BigInteger] = mapped_column(BigInteger, unique=True)
     warns: Mapped[warint]
