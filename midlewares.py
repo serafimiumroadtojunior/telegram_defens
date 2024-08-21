@@ -57,7 +57,7 @@ class ForbiddenWordsMiddleware(BaseMiddleware):
         self.bot: Bot = bot
         self.forbidden_words: List[str] = forbidden_words
         self.response_message: str = response_message
-        self.until_date = datetime.now() + timedelta(minutes=1)
+        self.until_date = datetime.now() + timedelta(minutes=30)
         super().__init__()
 
     async def mute_user(self, chat_id: int, user_id: int):
