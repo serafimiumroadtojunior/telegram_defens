@@ -25,7 +25,7 @@ class AdminCheckerMiddleware(BaseMiddleware):
         data: Dict[str, Any]
     ) -> Any:
         user_id = event.from_user.id
-        if not await self.check_admin(event.chat.id, user_id) and user_id != 5720349640:
+        if not await self.check_admin(event.chat.id, user_id):
             await send_message_and_delete(
                 bot=self.bot,
                 chat_id=event.chat.id,
@@ -47,7 +47,7 @@ class CallbackAdminCheckerMiddleware(AdminCheckerMiddleware):
         data: Dict[str, Any]
     ) -> Any:
         user_id = event.from_user.id
-        if not await self.check_admin(event.message.chat.id, user_id) and user_id != 5720349640:
+        if not await self.check_admin(event.message.chat.id, user_id):
             await event.answer("You do not have sufficient rights to perform this function.", show_alert=True)
             return
         return await handler(event, data)
