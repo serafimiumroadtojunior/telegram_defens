@@ -6,7 +6,7 @@ from contextlib import suppress
 from aiogram import Bot
 from aiogram.filters import CommandObject
 from aiogram.types import (Message, ChatPermissions, InlineKeyboardMarkup, InlineKeyboardButton,
-                            CallbackQuery, ChatMemberMember, ChatMemberRestricted, ChatMember)
+                            CallbackQuery, ChatMemberMember, ChatMember)
 from aiogram.exceptions import TelegramBadRequest
 
 def parse_time_and_reason(args):
@@ -147,10 +147,11 @@ async def handle_restriction(bot: Bot, message: Message, command: CommandObject,
         delay=30
     )
 
-    asyncio.create_task(send_unrestriction_message(bot, message.chat.id, reply.from_user.id, until_date, action_past))
+    asyncio.create_task(send_unrestriction_message(bot, message.chat.id, reply.from_user.id, until_date))
 
-async def send_unrestriction_message(bot: Bot, chat_id: int, user_id: int, new_datetime: datetime, action_past: str | None = None):
+async def send_unrestriction_message(bot: Bot, chat_id: int, user_id: int, new_datetime: datetime):
     wait_time = (new_datetime - datetime.now()).total_seconds()
+    
     if wait_time <= 0:
         return None
     
@@ -158,18 +159,16 @@ async def send_unrestriction_message(bot: Bot, chat_id: int, user_id: int, new_d
 
     chat_member: ChatMember = await bot.get_chat_member(chat_id, user_id)
 
-    if isinstance(chat_member, ChatMemberRestricted):
-        if chat_member.until_date and chat_member.until_date.timestamp() < new_datetime.timestamp():
-            return None
-        
-    elif isinstance(chat_member, ChatMemberMember):
+    if isinstance(chat_member, ChatMemberMember):
         await send_message_and_delete(
             bot=bot,
             chat_id=chat_id,
-            text=f"<a href='tg://user?id={user_id}'><b>👀{chat_member.user.first_name}</b></a> has been {'unmuted' if action_past == 'muted' else 'unbanned'}.",
+            text=f"<a href='tg://user?id={user_id}'><b>👀{chat_member.user.first_name}</b></a> has been unmuted",
             delay=30
         )
-
+    
+    else:
+        return None
         
 async def mute_and_unmute(bot: Bot, chat_id: int, tg_id: int, permission: bool, until_date=None):
         await bot.restrict_chat_member(
