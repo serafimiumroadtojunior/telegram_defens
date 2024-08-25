@@ -54,8 +54,8 @@ async def check_warns(user_id: int) -> int:
             select(User.warns)
             .where(User.tg_id == user_id))
         
-        warns = result.scalar()
-        return warns
+        warns = result.scalar_one_or_none()
+        return warns if warns else 0
 
 
 async def del_warn(tg_id: int):
