@@ -4,10 +4,6 @@ from sqlalchemy import update, and_, insert
 from models import async_session, User
 
 async def add_user(tg_id: int):
-    """
-    Функция для добавления нового пользователя по айди
-    :param tg_id: Айди юзера
-    """
     async with async_session() as session:
         async with session.begin():
             await session.execute(
@@ -17,11 +13,6 @@ async def add_user(tg_id: int):
        
             
 async def add_warn(user_id: int):
-    """
-    Функция для выдачи варна юзеру по айди
-    :param user_id: Айди юзера
-    :return: Количество варнов у юзера
-    """
     async with async_session() as session:
         async with session.begin():
             await session.execute(
@@ -31,10 +22,6 @@ async def add_warn(user_id: int):
 
 
 async def reset_warns(user_id: int):
-    """
-    Функция для сброса варнов у юзера по айди.
-    :param user_id: Айди юзера.
-    """
     async with async_session() as session:
         async with session.begin():
             await session.execute(
@@ -44,11 +31,6 @@ async def reset_warns(user_id: int):
 
 
 async def check_warns(user_id: int) -> int:
-    """
-    Функция для проверки количества варнов у юзера по айди
-    :param user_id: Айди юзера
-    :return: Количество варнов у юзера
-    """
     async with async_session() as session:
         result = await session.execute(
             select(User.warns)
@@ -59,10 +41,6 @@ async def check_warns(user_id: int) -> int:
 
 
 async def del_warn(tg_id: int):
-    """
-    Функция для удаления варна у юзера по айди
-    :param tg_id: Айди юзера
-    """
     async with async_session() as session:
         async with session.begin():
             await session.execute(
