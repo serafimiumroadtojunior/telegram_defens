@@ -92,6 +92,7 @@ async def handle_unrestriction(bot: Bot, message: Message, action: str):
 
 async def handle_restriction(bot: Bot, message: Message, command: CommandObject, action: str):
     reply = message.reply_to_message
+    
     if not reply:
         await send_message_and_delete(
             bot=bot,
@@ -111,33 +112,27 @@ async def handle_restriction(bot: Bot, message: Message, command: CommandObject,
         )
         return
 
-    if action == "mute":
-        try:
+    try:
+        if action == "mute":
             await mute_and_unmute(bot=bot, chat_id=message.chat.id, tg_id=reply.from_user.id, permission=False, until_date=until_date)
-        except TelegramBadRequest:
-            await send_message_and_delete(
-                bot=bot,
-                chat_id=message.chat.id,
-                text="<b>🔴Error mute!</b>",
-                delay=10
-            )
-            return
 
-    elif action == "ban":
-        try:
+        elif action == "ban":
             await ban_user(bot=bot, chat_id=message.chat.id, tg_id=reply.from_user.id, until_date=until_date)
-        except TelegramBadRequest:
-            await send_message_and_delete(
-                bot=bot,
-                chat_id=message.chat.id,
-                text="<b>🔴Error ban!</b>",
-                delay=10
-            )
-            return
+
+    except TelegramBadRequest:
+        await send_message_and_delete(
+            bot=bot,
+            chat_id=message.chat.id,
+            text=f"<b>🔴Error {action}!</b>",
+            delay=10
+        )
+        return
 
     action_past = "muted" if action == "mute" else "banned"
     button_text = "Unmute✅" if action == "mute" else "Unban✅"
     callback_data = f'unmute_{reply.from_user.id}' if action == "mute" else f'unban_{reply.from_user.id}'
+    
+    asyncio.create_task(send_unrestriction_message(bot, message.chat.id, reply.from_user.id, until_date))
 
     await send_message_and_delete(
         bot=bot,
@@ -147,14 +142,12 @@ async def handle_restriction(bot: Bot, message: Message, command: CommandObject,
         delay=30
     )
 
-    asyncio.create_task(send_unrestriction_message(bot, message.chat.id, reply.from_user.id, until_date))
-
 async def send_unrestriction_message(bot: Bot, chat_id: int, user_id: int, new_datetime: datetime):
     wait_time = (new_datetime - datetime.now()).total_seconds()
     
     if wait_time <= 0:
-        return None
-    
+        return
+
     await asyncio.sleep(wait_time)
 
     chat_member: ChatMember = await bot.get_chat_member(chat_id, user_id)
@@ -166,10 +159,9 @@ async def send_unrestriction_message(bot: Bot, chat_id: int, user_id: int, new_d
             text=f"<a href='tg://user?id={user_id}'><b>👀{chat_member.user.first_name}</b></a> has been unmuted",
             delay=30
         )
-    
     else:
-        return None
-        
+        print(f"User with ID {user_id} is not a member of the chat or could not retrieve member info.") 
+
 async def mute_and_unmute(bot: Bot, chat_id: int, tg_id: int, permission: bool, until_date=None):
         await bot.restrict_chat_member(
             chat_id=chat_id,
