@@ -2,6 +2,7 @@ import asyncio
 import re
 from datetime import datetime, timedelta
 from contextlib import suppress
+from typing import Any
 
 from aiogram import Bot
 from aiogram.filters import CommandObject
@@ -67,14 +68,14 @@ async def handle_unrestriction_for_callback(bot: Bot, callback_query: CallbackQu
 
 async def handle_unrestriction(bot: Bot, message: Message, action: str):
     reply = message.reply_to_message
-    if not reply:
-        await send_message_and_delete(
-            bot=bot,
-            chat_id=message.chat.id,
-            text="🔴Error! Reply to a message to use this command.",
-            delay=10
-        )
-        return
+
+    await check_object(
+        bot=bot,
+        error_object=reply,
+        chat_id=message.chat.id,
+        text="🔴Error! Reply to a message to use this command.",
+        delay=10
+    )
 
     if action == "unmute":
         await mute_and_unmute(bot=bot, chat_id=message.chat.id, tg_id=reply.from_user.id, permission=True)
@@ -92,25 +93,24 @@ async def handle_unrestriction(bot: Bot, message: Message, action: str):
 
 async def handle_restriction(bot: Bot, message: Message, command: CommandObject, action: str):
     reply = message.reply_to_message
-    
-    if not reply:
-        await send_message_and_delete(
-            bot=bot,
-            chat_id=message.chat.id,
-            text="🔴Error! Reply to a message to use this command.",
-            delay=10
+
+    await check_object(
+        bot=bot,
+        error_object=reply,
+        chat_id=message.chat.id,
+        text="🔴Error! Reply to a message to use this command.",
+        delay=10
         )
-        return
 
     until_date, reason, readable_time = parse_time_and_reason(command.args)
-    if not until_date:
-        await send_message_and_delete(
-            bot=bot,
-            chat_id=message.chat.id,
-            text="🔴Error! Could not parse the time. Correct format: /mute 12h for spam",
-            delay=10
-        )
-        return
+
+    await check_object(
+        bot=bot,
+        error_object=until_date,
+        chat_id=message.chat.id,
+        text="🔴Error! Could not parse the time. Correct format: /mute 12h for spam",
+        delay=10
+    )
 
     try:
         if action == "mute":
@@ -204,3 +204,14 @@ async def send_message_and_delete(bot: Bot, chat_id: int, text: str, parse_mode:
     sent_message = await bot.send_message(chat_id, text, parse_mode=parse_mode, reply_markup=reply_markup)
     await delayed_delete(delay, sent_message)
     return sent_message
+
+async def check_object(bot: Bot, error_object: Any, chat_id: int, text: str, delay: int = 10):
+    object = error_object
+    if not object:
+        await send_message_and_delete(
+            bot=bot,
+            chat_id=chat_id,
+            text=text,
+            delay=delay
+        )
+        return
