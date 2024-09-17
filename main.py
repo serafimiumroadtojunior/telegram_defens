@@ -8,7 +8,6 @@ from admin_handlers import admin_router
 from midlewares import (AdminCheckerMiddleware, CallbackAdminCheckerMiddleware,
                         ForbiddenWordsMiddleware, AntiFloodMiddleware)
 from models import engine, Base
-from other import forbidden_words
 
 
 load_dotenv()
@@ -23,7 +22,7 @@ async def main():
     dp.include_router(admin_router)
     admin_router.message.middleware(AdminCheckerMiddleware(bot))
     admin_router.callback_query.middleware(CallbackAdminCheckerMiddleware(bot))
-    admin_router.message.outer_middleware(ForbiddenWordsMiddleware(bot, forbidden_words))
+    admin_router.message.outer_middleware(ForbiddenWordsMiddleware(bot, os.getenv('FORBIDDEN_WORDS_FILE')))
     admin_router.message.middleware(AntiFloodMiddleware())
 
     await dp.start_polling(bot)
