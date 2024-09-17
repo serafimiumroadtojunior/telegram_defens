@@ -54,13 +54,18 @@ class CallbackAdminCheckerMiddleware(AdminCheckerMiddleware):
         return await handler(event, data)
 
 class ForbiddenWordsMiddleware(BaseMiddleware):
-    def __init__(self, bot: Bot, forbidden_words: List[str], response_message: str = "🔴 <a href='tg://user?id={user_id}'><b>{username}</b></a> was muted for 30 minutes for using offensive language."):
-        self.bot: Bot = bot
-        self.forbidden_words: List[str] = forbidden_words
+    def __init__(self, bot: Bot, file_path: str, response_message: str = "🔴 <a href='tg://user?id={user_id}'><b>{username}</b></a> was muted for 30 minutes for using offensive language."):
+        self.bot = bot
+        self.forbidden_words_file = file_path
+        self.forbidden_words: List[str] = self.check_forbidden_words()
         self.response_message: str = response_message
-        self.until_date = datetime.now() + timedelta(minutes=30)
+        self.until_date: datetime = datetime.now() + timedelta(minutes=30)
         super().__init__()
 
+    def check_forbidden_words(self):
+        with open(self.forbidden_words_file, 'r', encoding='utf-8') as bad_words:
+            return [word.strip() for word in bad_words if word.strip()]
+        
     def create_pattern(self) -> str:
         escaped_words = [re.escape(word) for word in self.forbidden_words]
         pattern = r'\b(?:' + '|'.join(escaped_words) + r')\b'
