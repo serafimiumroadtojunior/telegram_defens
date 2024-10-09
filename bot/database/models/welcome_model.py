@@ -1,0 +1,12 @@
+from sqlalchemy import BigInteger
+from sqlalchemy.orm import Mapped, mapped_column
+
+from ..session import Base
+
+
+class Welcome(Base):
+    __tablename__ = "welcome_users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    message_id: Mapped[int] = mapped_column(BigInteger)
+    chat_id: Mapped[int] = mapped_column(BigInteger, unique=True)
