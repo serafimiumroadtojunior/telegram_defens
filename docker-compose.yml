@@ -11,4 +11,4 @@ services:
     volumes:
       - .:/app
       - ./bad_words.txt:/app/bad_words.txt
-    command: /bin/sh -c "alembic --config /moderator/bot/alembic.ini upgrade 315+3 && python bot/main.py"
+    command: /bin/sh -c "alembic --config /moderator/bot/alembic.ini upgrade head && python bot/main.py"
