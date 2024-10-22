@@ -11,19 +11,19 @@ from database.session import async_session
 async def add_user(tg_id: int) -> None:
     async with async_session() as session:
         async with session.begin():
-            stmt = insert(Warns).values(tg_id=tg_id).on_conflict_do_nothing(
+            new_user = insert(Warns).values(tg_id=tg_id).on_conflict_do_nothing(
                 index_elements=['tg_id']
             )
-            await session.execute(stmt)
+            await session.execute(new_user)
 
 
 async def add_reason(tg_id: int, reason: str) -> None:
     async with async_session() as session:
         async with session.begin():
-            stmt = insert(Reasons).values(tg_id=tg_id, reasons=reason).on_conflict_do_nothing(
+            new_reason = insert(Reasons).values(tg_id=tg_id, reasons=reason).on_conflict_do_nothing(
                 index_elements=['tg_id', 'reasons']
             )
-            await session.execute(stmt)
+            await session.execute(new_reason)
 
 
 async def get_user_reasons(tg_id: int) -> Union[List[str], str]:
